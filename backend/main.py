@@ -59,6 +59,23 @@ class ProductionReceive(BaseModel):
     produced_qty: int
 
 
+class BundleCreate(BaseModel):
+    style: str
+    color: str
+    size: str
+    qty: int
+
+
+class BundleScan(BaseModel):
+    bundle_code: str
+    machine_no: str
+
+
+class ProductionSubmit(BaseModel):
+    bundle_code: str
+    produced_qty: int
+
+
 def insert_and_commit(conn, query, params, error_detail):
     cur = conn.cursor()
     try:
@@ -154,3 +171,94 @@ def receive_production(data: ProductionReceive, conn=Depends(get_conn)):
         "could not record production reception",
     )
     return {"message": "Production received successfully"}
+
+
+@app.post("/bundle/scan", status_code=status.HTTP_201_CREATED)
+def scan_bundle(data: BundleScan, conn=Depends(get_conn)):
+    insert_and_commit(
+        conn,
+        """
+        INSERT INTO bundle_scan
+        (bundle_code, machine_no)
+        VALUES (%s,%s)
+        """,
+        (data.bundle_code, data.machine_no),
+        "could not scan bundle",
+    )
+    return {"message": "Bundle scanned successfully"}
+
+
+@app.post("/production/submit", status_code=status.HTTP_201_CREATED)
+def submit_production(data: ProductionSubmit, conn=Depends(get_conn)):
+    insert_and_commit(
+        conn,
+        """
+        INSERT INTO production_submit
+        (bundle_code, produced_qty)
+        VALUES (%s,%s)
+        """,
+        (data.bundle_code, data.produced_qty),
+        "could not submit production",
+    )
+    return {"message": "Production submitted successfully"}
+
+
+@app.get("/worker/performance")
+def worker_performance():
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT worker_machine, SUM(produced_qty)
+        FROM production_receive
+        GROUP BY worker_machine
+        """
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    # Return as a list of dicts for better API response
+    return [{"worker_machine": row[0], "total_produced_qty": row[1]} for row in rows]
+
+
+@app.get("/dashboard/summary")
+def dashboard_summary():
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT SUM(produced_qty)
+        FROM production_receive
+        WHERE DATE(received_at) = CURRENT_DATE
+    """)
+    today_production = cur.fetchone()[0] or 0
+
+    cur.execute("""
+        SELECT worker_machine,
+        SUM(produced_qty) as total
+        FROM production_receive
+        GROUP BY worker_machine
+        ORDER BY total DESC
+        LIMIT 1
+    """)
+    top_worker_row = cur.fetchone()
+    top_worker = {
+        "worker_machine": top_worker_row[0],
+        "total_produced_qty": top_worker_row[1]
+    } if top_worker_row else None
+
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM bundle_issue
+        WHERE DATE(issued_at) = CURRENT_DATE
+    """)
+    bundles_in_progress = cur.fetchone()[0]
+
+    cur.close()
+    conn.close()
+
+    return {
+        "today_production": today_production,
+        "top_worker": top_worker,
+        "bundles_in_progress": bundles_in_progress
+    }

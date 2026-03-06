@@ -73,3 +73,11 @@ class ProductionReceive(Base):
     worker_machine = Column(String)
     produced_qty = Column(Integer)
     received_at = Column(TIMESTAMP, server_default=func.now())
+
+
+class ProductionSubmitDB(Base):
+    __tablename__ = "production_receive"
+    id = Column(Integer, primary_key=True)
+    bundle_code = Column(String)
+    produced_qty = Column(Integer)
+    submitted_at = Column(TIMESTAMP, server_default=func.now())
