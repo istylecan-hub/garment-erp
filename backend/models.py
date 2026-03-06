@@ -64,3 +64,12 @@ class BundleIssue(Base):
     bundle_code = Column(String)
     worker_machine = Column(String)
     issued_at = Column(TIMESTAMP, server_default=func.now())
+
+
+class ProductionReceive(Base):
+    __tablename__ = "production_receive"
+    id = Column(Integer, primary_key=True)
+    bundle_no = Column(String)
+    worker_machine = Column(String)
+    produced_qty = Column(Integer)
+    received_at = Column(TIMESTAMP, server_default=func.now())

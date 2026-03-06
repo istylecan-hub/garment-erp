@@ -53,6 +53,12 @@ class BundleIssue(BaseModel):
     worker_machine: str = Field(..., min_length=1)
 
 
+class ProductionReceive(BaseModel):
+    bundle_no: str
+    worker_machine: str
+    produced_qty: int
+
+
 def insert_and_commit(conn, query, params, error_detail):
     cur = conn.cursor()
     try:
@@ -133,3 +139,18 @@ def issue_bundle(data: BundleIssue, conn=Depends(get_conn)):
         "could not issue bundle",
     )
     return {"message": "Bundle issued to worker"}
+
+
+@app.post("/production/receive", status_code=status.HTTP_201_CREATED)
+def receive_production(data: ProductionReceive, conn=Depends(get_conn)):
+    insert_and_commit(
+        conn,
+        """
+        INSERT INTO production_receive
+        (bundle_no, worker_machine, produced_qty)
+        VALUES (%s,%s,%s)
+        """,
+        (data.bundle_no, data.worker_machine, data.produced_qty),
+        "could not record production reception",
+    )
+    return {"message": "Production received successfully"}
