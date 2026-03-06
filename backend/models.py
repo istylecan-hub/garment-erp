@@ -68,16 +68,11 @@ class BundleIssue(Base):
 
 class ProductionReceive(Base):
     __tablename__ = "production_receive"
+    __table_args__ = {"extend_existing": True}
+
     id = Column(Integer, primary_key=True)
     bundle_no = Column(String)
     worker_machine = Column(String)
     produced_qty = Column(Integer)
-    received_at = Column(TIMESTAMP, server_default=func.now())
+    received_at = Column(TIMESTAMP)
 
-
-class ProductionSubmitDB(Base):
-    __tablename__ = "production_receive"
-    id = Column(Integer, primary_key=True)
-    bundle_code = Column(String)
-    produced_qty = Column(Integer)
-    submitted_at = Column(TIMESTAMP, server_default=func.now())
