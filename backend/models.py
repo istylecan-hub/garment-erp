@@ -34,3 +34,33 @@ class FabricReceive(Base):
     meters = Column(Numeric)
     supplier = Column(String)
     received_at = Column(TIMESTAMP, server_default=func.now())
+
+
+class CuttingOrder(Base):
+    __tablename__ = "cutting_orders"
+    id = Column(Integer, primary_key=True)
+    style = Column(String)
+    color = Column(String)
+    size = Column(String)
+    qty = Column(Integer)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+
+class Bundle(Base):
+    __tablename__ = "bundles"
+    id = Column(Integer, primary_key=True)
+    bundle_code = Column(String)
+    style = Column(String)
+    color = Column(String)
+    size = Column(String)
+    qty = Column(Integer)
+    cut_by = Column(String)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+
+class BundleIssue(Base):
+    __tablename__ = "bundle_issue"
+    id = Column(Integer, primary_key=True)
+    bundle_code = Column(String)
+    worker_machine = Column(String)
+    issued_at = Column(TIMESTAMP, server_default=func.now())
