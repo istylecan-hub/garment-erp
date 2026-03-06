@@ -76,6 +76,19 @@ class ProductionSubmit(BaseModel):
     produced_qty: int
 
 
+class UserCreate(BaseModel):
+    name: str
+    username: str
+    password: str
+    role: str
+    machine_no: str | None = None
+
+
+class Login(BaseModel):
+    username: str
+    password: str
+
+
 def insert_and_commit(conn, query, params, error_detail):
     cur = conn.cursor()
     try:
@@ -203,6 +216,45 @@ def submit_production(data: ProductionSubmit, conn=Depends(get_conn)):
     return {"message": "Production submitted successfully"}
 
 
+@app.post("/user/create", status_code=status.HTTP_201_CREATED)
+def create_user(data: UserCreate, conn=Depends(get_conn)):
+    insert_and_commit(
+        conn,
+        """
+        INSERT INTO users
+        (name, username, password, role, machine_no)
+        VALUES (%s,%s,%s,%s,%s)
+        """,
+        (data.name, data.username, data.password, data.role, data.machine_no),
+        "could not create user",
+    )
+    return {"message": "User created successfully"}
+
+
+@app.post("/users/create")
+def create_user(data: UserCreate):
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO users
+        (name,username,password,role,machine_no)
+        VALUES (%s,%s,%s,%s,%s)
+        """,
+        (
+            data.name,
+            data.username,
+            data.password,
+            data.role,
+            data.machine_no
+        ),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"message": "user created"}
+
+
 @app.get("/worker/performance")
 def worker_performance():
     conn = psycopg2.connect(DATABASE_URL)
@@ -309,3 +361,47 @@ def ai_production_plan():
         "bundles_issued_today": bundles_today,
         "avg_worker_output": round(avg_worker_output, 2)
     }
+
+@app.post("/login")
+def login(data: Login):
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT id, name, role, machine_no
+        FROM users
+        WHERE username=%s AND password=%s
+        """,
+        (data.username, data.password)
+    )
+    user = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not user:
+        return {"error": "invalid login"}
+    return {
+        "user_id": user[0],
+        "name": user[1],
+        "role": user[2],
+        "machine_no": user[3]
+    }
+
+@app.get("/worker/my-production/{machine_no}")
+def worker_production(machine_no):
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT bundle_code, produced_qty, received_at
+        FROM production_receive
+        WHERE worker_machine=%s
+        """,
+        (machine_no,)
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    # Return as a list of dicts for better API response
+    return [
+        {"bundle_code": row[0], "produced_qty": row[1], "received_at": row[2]} for row in rows
+    ]
