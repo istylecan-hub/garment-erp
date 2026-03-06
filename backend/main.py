@@ -262,3 +262,50 @@ def dashboard_summary():
         "top_worker": top_worker,
         "bundles_in_progress": bundles_in_progress
     }
+
+
+@app.get("/ai/production-plan")
+def ai_production_plan():
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+
+    # total production today
+    cur.execute("""
+        SELECT SUM(produced_qty)
+        FROM production_receive
+        WHERE DATE(received_at) = CURRENT_DATE
+    """)
+    today_production = cur.fetchone()[0] or 0
+
+    # worker efficiency
+    cur.execute("""
+        SELECT worker_machine,
+        SUM(produced_qty) as total
+        FROM production_receive
+        GROUP BY worker_machine
+        ORDER BY total DESC
+    """)
+    workers = cur.fetchall()
+
+    # bundles issued today
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM bundle_issue
+        WHERE DATE(issued_at) = CURRENT_DATE
+    """)
+    bundles_today = cur.fetchone()[0]
+
+    cur.close()
+    conn.close()
+
+    # simple planning logic
+    avg_worker_output = 0
+    if len(workers) > 0:
+        avg_worker_output = today_production / len(workers)
+
+    return {
+        "today_production": today_production,
+        "workers_active": len(workers),
+        "bundles_issued_today": bundles_today,
+        "avg_worker_output": round(avg_worker_output, 2)
+    }
